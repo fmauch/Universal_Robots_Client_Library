@@ -147,12 +147,11 @@ urcl::UrDriver::UrDriver(const std::string& robot_ip, const std::string& script_
   else
   {
     script_sender_.reset(new comm::ScriptSender(script_sender_port, prog));
-    script_sender_->start();
     URCL_LOG_DEBUG("Created script sender");
   }
 
-  reverse_port_ = reverse_port;
-  watchdog_thread_ = std::thread(&UrDriver::startWatchdog, this);
+  // reverse_port_ = reverse_port;
+  // watchdog_thread_ = std::thread(&UrDriver::startWatchdog, this);
 
   URCL_LOG_DEBUG("Initialization done");
 }

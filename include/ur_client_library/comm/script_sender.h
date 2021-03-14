@@ -29,7 +29,9 @@
 #ifndef UR_CLIENT_LIBRARY_SCRIPT_SENDER_H_INCLUDED
 #define UR_CLIENT_LIBRARY_SCRIPT_SENDER_H_INCLUDED
 
-#include "ur_client_library/comm/server.h"
+#include <thread>
+
+#include "ur_client_library/comm/tcp_server.h"
 #include "ur_client_library/log.h"
 
 namespace urcl
@@ -52,76 +54,71 @@ public:
    */
   ScriptSender(uint32_t port, const std::string& program) : server_(port), script_thread_(), program_(program)
   {
-    if (!server_.bind())
-    {
-      throw std::runtime_error("Could not bind to server");
-    }
-  }
-
-  /*!
-   * \brief Starts the thread that handles program requests by a robot.
-   */
-  void start()
-  {
-    script_thread_ = std::thread(&ScriptSender::runScriptSender, this);
+    server_.setMessageCallback(
+        std::bind(&ScriptSender::messageCallback, this, std::placeholders::_1, std::placeholders::_2));
+    server_.setConnectCallback(std::bind(&ScriptSender::connectionCallback, this, std::placeholders::_1));
+    server_.setDisconnectCallback(std::bind(&ScriptSender::disconnectionCallback, this, std::placeholders::_1));
+    server_.start();
   }
 
 private:
-  URServer server_;
+  TCPServer server_;
   std::thread script_thread_;
   std::string program_;
 
   const std::string PROGRAM_REQUEST_ = std::string("request_program\n");
 
-  void runScriptSender()
+  void connectionCallback(const int filedescriptor)
   {
-    while (true)
+    URCL_LOG_INFO("New client connected at FD %d.", filedescriptor);
+  }
+
+  void disconnectionCallback(const int filedescriptor)
+  {
+    URCL_LOG_INFO("Client at FD %d disconnected.", filedescriptor);
+  }
+
+  void messageCallback(const int filedescriptor, char* buffer)
+  {
+    if (std::string(buffer) == PROGRAM_REQUEST_)
     {
-      if (!server_.accept())
-      {
-        throw std::runtime_error("Failed to accept robot connection");
-      }
-      if (requestRead())
-      {
-        URCL_LOG_INFO("Robot requested program");
-        sendProgram();
-      }
-      server_.disconnectClient();
+      URCL_LOG_INFO("Robot requested program");
+      sendProgram(filedescriptor);
     }
   }
 
-  bool requestRead()
-  {
-    const size_t buf_len = 1024;
-    char buffer[buf_len];
+  // bool requestRead()
+  //{
+  // const size_t buf_len = 1024;
+  // char buffer[buf_len];
 
-    bool read_successful = server_.readLine(buffer, buf_len);
+  // bool read_successful = server_.readLine(buffer, buf_len);
 
-    if (read_successful)
-    {
-      if (std::string(buffer) == PROGRAM_REQUEST_)
-      {
-        return true;
-      }
-      else
-      {
-        URCL_LOG_WARN("Received unexpected message on script request port ");
-      }
-    }
-    else
-    {
-      URCL_LOG_WARN("Could not read on script request port");
-    }
-    return false;
-  }
+  // if (read_successful)
+  //{
+  // if (std::string(buffer) == PROGRAM_REQUEST_)
+  //{
+  // return true;
+  //}
+  // else
+  //{
+  // URCL_LOG_WARN("Received unexpected message on script request port ");
+  //}
+  //}
+  // else
+  //{
+  // URCL_LOG_WARN("Could not read on script request port");
+  //}
+  // return false;
+  //}
 
-  void sendProgram()
+  void sendProgram(const int filedescriptor)
   {
     size_t len = program_.size();
     const uint8_t* data = reinterpret_cast<const uint8_t*>(program_.c_str());
     size_t written;
 
-    if (server_.write(data, len, written))
+    if (server_.write(filedescriptor, data, len, written))
     {
       URCL_LOG_INFO("Sent program to robot");
     }
