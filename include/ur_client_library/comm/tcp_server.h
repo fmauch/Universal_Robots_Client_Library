@@ -145,9 +145,9 @@ public:
   }
 
 private:
-  int init();
-  int bind();
-  int startListen();
+  void init();
+  void bind();
+  void startListen();
 
   //! Handles connection events
   void handleConnect();

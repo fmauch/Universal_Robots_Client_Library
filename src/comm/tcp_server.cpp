@@ -30,10 +30,12 @@
 
 #include <iostream>
 
+#include <sstream>
 #include <strings.h>
 #include <cstring>
 #include <fcntl.h>
 #include <algorithm>
+#include <system_error>
 
 namespace urcl
 {
@@ -41,7 +43,6 @@ namespace comm
 {
 TCPServer::TCPServer(const int port) : port_(port), maxfd_(0), max_clients_allowed_(0)
 {
-  // TODO: Errorhandling
   init();
   bind();
   startListen();
@@ -54,14 +55,12 @@ TCPServer::~TCPServer()
   close(listen_fd_);
 }
 
-int TCPServer::init()
+void TCPServer::init()
 {
   int err = (listen_fd_ = socket(AF_INET, SOCK_STREAM, 0));
   if (err == -1)
   {
-    perror("socket");
-    URCL_LOG_ERROR("Failed to create socket endpoint\n");
-    return err;
+    throw std::system_error(std::error_code(errno, std::generic_category()), "Failed to create socket endpoint");
   }
   URCL_LOG_DEBUG("Created socket with FD %d", (int)listen_fd_);
 
@@ -71,7 +70,7 @@ int TCPServer::init()
   // Create self-pipe for interrupting the worker loop
   if (pipe(self_pipe_) == -1)
   {
-    URCL_LOG_ERROR("Error creating self-pipe");
+    throw std::system_error(std::error_code(errno, std::generic_category()), "Error creating self-pipe");
   }
   URCL_LOG_DEBUG("Created read pipe at FD %d", self_pipe_[0]);
   FD_SET(self_pipe_[0], &masterfds_);
@@ -80,19 +79,25 @@ int TCPServer::init()
   int flags;
   flags = fcntl(self_pipe_[0], F_GETFL);
   if (flags == -1)
-    URCL_LOG_ERROR("fcntl-F_GETFL");
+  {
+    throw std::system_error(std::error_code(errno, std::generic_category()), "fcntl-F_GETFL");
+  }
   flags |= O_NONBLOCK;  // Make read end nonblocking
   if (fcntl(self_pipe_[0], F_SETFL, flags) == -1)
-    URCL_LOG_ERROR("fcntl-F_SETFL");
+  {
+    throw std::system_error(std::error_code(errno, std::generic_category()), "fcntl-F_SETFL");
+  }
 
   flags = fcntl(self_pipe_[1], F_GETFL);
   if (flags == -1)
-    URCL_LOG_ERROR("fcntl-F_GETFL");
+  {
+    throw std::system_error(std::error_code(errno, std::generic_category()), "fcntl-F_GETFL");
+  }
   flags |= O_NONBLOCK;  // Make write end nonblocking
   if (fcntl(self_pipe_[1], F_SETFL, flags) == -1)
-    URCL_LOG_ERROR("fcntl-F_SETFL");
-
-  return err;
+  {
+    throw std::system_error(std::error_code(errno, std::generic_category()), "fcntl-F_SETFL");
+  }
 }
 
 void TCPServer::shutdown()
@@ -103,7 +108,7 @@ void TCPServer::shutdown()
   // handler which will stop the select() call from blocking.
   if (::write(self_pipe_[1], "x", 1) == -1 && errno != EAGAIN)
   {
-    URCL_LOG_ERROR("write");
+    throw std::system_error(std::error_code(errno, std::generic_category()), "Writing to self-pipe failed.");
   }
 
   // After the event loop has finished the thread will be joinable.
@@ -111,7 +116,7 @@ void TCPServer::shutdown()
   URCL_LOG_DEBUG("Worker thread joined.");
 }
 
-int TCPServer::bind()
+void TCPServer::bind()
 {
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
@@ -122,26 +127,26 @@ int TCPServer::bind()
   int err = ::bind(listen_fd_, (struct sockaddr*)&server_addr, sizeof(server_addr));
   if (err == -1)
   {
-    URCL_LOG_ERROR("Failed to bind socket for port %d to address. Reason: %s", port_, strerror(errno));
-    return err;
+    std::ostringstream ss;
+    ss << "Failed to bind socket for port " << port_ << " to address. Reason: " << strerror(errno);
+    throw std::system_error(std::error_code(errno, std::generic_category()), ss.str());
   }
   URCL_LOG_DEBUG("Bound %d:%d to FD %d", server_addr.sin_addr.s_addr, port_, (int)listen_fd_);
 
   FD_SET(listen_fd_, &masterfds_);
   maxfd_ = std::max((int)listen_fd_, self_pipe_[0]);
-  // maxfd_ = listen_fd_;
-  return err;
 }
 
-int TCPServer::startListen()
+void TCPServer::startListen()
 {
   int err = listen(listen_fd_, 1);
   if (err == -1)
   {
-    URCL_LOG_ERROR("Failed to start listen on port %d\n", port_);
+    std::ostringstream ss;
+    ss << "Failed to start listen on port " << port_;
+    throw std::system_error(std::error_code(errno, std::generic_category()), ss.str());
   }
   URCL_LOG_DEBUG("Listening on port %d", port_);
-  return err;
 }
 
 void TCPServer::handleConnect()
@@ -151,8 +156,9 @@ void TCPServer::handleConnect()
   int client_fd = accept(listen_fd_, (struct sockaddr*)&client_addr, &addrlen);
   if (client_fd < 0)
   {
-    URCL_LOG_ERROR("accept() failed");
-    return;
+    std::ostringstream ss;
+    ss << "Failed to accept connection request on port  " << port_;
+    throw std::system_error(std::error_code(errno, std::generic_category()), ss.str());
   }
 
   if (client_fds_.size() < max_clients_allowed_)
