@@ -167,7 +167,8 @@ void TCPServer::handleConnect()
   }
   else
   {
-    URCL_LOG_WARN("Connection attempt on port %d while maximum number of clients (%d) is already connected. Closing connection.",
+    URCL_LOG_WARN("Connection attempt on port %d while maximum number of clients (%d) is already connected. Closing "
+                  "connection.",
                   port_, max_clients_allowed_);
     close(client_fd);
   }

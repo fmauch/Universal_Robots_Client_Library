@@ -28,10 +28,12 @@
 #ifndef UR_CLIENT_LIBRARY_REVERSE_INTERFACE_H_INCLUDED
 #define UR_CLIENT_LIBRARY_REVERSE_INTERFACE_H_INCLUDED
 
-#include "ur_client_library/comm/server.h"
+#include "ur_client_library/comm/tcp_server.h"
 #include "ur_client_library/types.h"
+#include "ur_client_library/log.h"
 #include <cstring>
 #include <endian.h>
+#include <condition_variable>
 
 namespace urcl
 {
@@ -58,27 +60,29 @@ class ReverseInterface
 public:
   ReverseInterface() = delete;
   /*!
-   * \brief Creates a ReverseInterface object including a URServer.
+   * \brief Creates a ReverseInterface object including a TCPServer.
    *
    * \param port Port the Server is started on
+   * \param handle_program_state Function handle to a callback on program state changes. For this to
+   * work, the URScript program will have to send keepalive signals to the \p reverse_port. I no
+   * keepalive signal can be read, program state will be false.
    */
-  ReverseInterface(uint32_t port) : server_(port)
+  ReverseInterface(uint32_t port, std::function<void(bool)> handle_program_state)
+    : client_fd_(-1), server_(port), handle_program_state_(handle_program_state)
   {
-    if (!server_.bind())
-    {
-      throw std::runtime_error("Could not bind to server");
-    }
-    if (!server_.accept())
-    {
-      throw std::runtime_error("Failed to accept robot connection");
-    }
+    handle_program_state_(false);
+    server_.setMessageCallback(
+        std::bind(&ReverseInterface::messageCallback, this, std::placeholders::_1, std::placeholders::_2));
+    server_.setConnectCallback(std::bind(&ReverseInterface::connectionCallback, this, std::placeholders::_1));
+    server_.setDisconnectCallback(std::bind(&ReverseInterface::disconnectionCallback, this, std::placeholders::_1));
+    server_.setMaxClientsAllowed(1);
+    server_.start();
   }
   /*!
    * \brief Disconnects possible clients so the reverse interface object can be safely destroyed.
    */
   ~ReverseInterface()
   {
-    server_.disconnectClient();
   }
 
   /*!
@@ -92,6 +96,10 @@ public:
    */
   bool write(const vector6d_t* positions, const ControlMode control_mode = ControlMode::MODE_IDLE)
   {
+    if (client_fd_ == -1)
+    {
+      return false;
+    }
     uint8_t buffer[sizeof(int32_t) * 8];
     uint8_t* b_pos = buffer;
 
@@ -118,7 +126,7 @@ public:
 
     size_t written;
 
-    return server_.write(buffer, sizeof(buffer), written);
+    return server_.write(client_fd_, buffer, sizeof(buffer), written);
   }
 
   /*!
@@ -128,23 +136,54 @@ public:
    */
   std::string readKeepalive()
   {
-    const size_t buf_len = 16;
-    char buffer[buf_len];
-
-    bool read_successful = server_.readLine(buffer, buf_len);
-
-    if (read_successful)
+    // If client has been disconnected / not connected yet.
+    if (client_fd_ == -1)
     {
-      return std::string(buffer);
+      return "";
     }
-    else
-    {
-      return std::string("");
-    }
+
+    std::unique_lock<std::mutex> lk(keepalive_mutex_);
+    keepalive_cv_.wait(lk);
+    return keepalive_message_;
   }
 
 private:
-  URServer server_;
+  void connectionCallback(const int filedescriptor)
+  {
+    if (client_fd_ < 0)
+    {
+      URCL_LOG_INFO("Robot connected to reverse interface. Ready to receive control commands.");
+      client_fd_ = filedescriptor;
+      handle_program_state_(true);
+    }
+    else
+    {
+      URCL_LOG_ERROR("Connection request to ReverseInterface received while connection already established. Only one "
+                     "connection is allowed at a time. Ignoring this request.");
+    }
+  }
+
+  void disconnectionCallback(const int filedescriptor)
+  {
+    URCL_LOG_INFO("Connection to reverse interface dropped.", filedescriptor);
+    client_fd_ = -1;
+    handle_program_state_(false);
+  }
+
+  void messageCallback(const int filedescriptor, char* buffer)
+  {
+    std::lock_guard<std::mutex> lk(keepalive_mutex_);
+    keepalive_message_ = std::string(buffer);
+    keepalive_cv_.notify_one();
+  }
+
+  int client_fd_;
+  TCPServer server_;
+
+  std::mutex keepalive_mutex_;
+  std::condition_variable keepalive_cv_;
+  std::string keepalive_message_;
+
   static const int32_t MULT_JOINTSTATE = 1000000;
 
   template <typename T>
@@ -154,6 +193,8 @@ private:
     std::memcpy(buffer, &val, s);
     return s;
   }
+
+  std::function<void(bool)> handle_program_state_;
 };
 
 }  // namespace comm
