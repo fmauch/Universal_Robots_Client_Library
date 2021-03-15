@@ -39,7 +39,7 @@ namespace urcl
 namespace comm
 {
 /*!
- * \brief The ScriptSender class starts a URServer for a robot to connect to and waits for a
+ * \brief The ScriptSender class starts a TCPServer for a robot to connect to and waits for a
  * request to receive a program. This program is then delivered to the requesting robot.
  */
 class ScriptSender
@@ -47,7 +47,7 @@ class ScriptSender
 public:
   ScriptSender() = delete;
   /*!
-   * \brief Creates a ScriptSender object, including a new URServer and not yet started thread.
+   * \brief Creates a ScriptSender object, including a new TCPServer
    *
    * \param port Port to start the server on
    * \param program Program to send to the robot upon request
