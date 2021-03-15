@@ -26,7 +26,6 @@
 //----------------------------------------------------------------------
 
 #include <ur_client_library/log.h>
-#include <ur_client_library/comm/tcp_server.h>
 
 #include <iostream>
 
