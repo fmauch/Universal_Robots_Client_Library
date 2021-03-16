@@ -255,22 +255,23 @@ void TCPServer::readData(const int fd)
 {
   bzero(&input_buffer_, INPUT_BUFFER_SIZE);  // clear input buffer
   int nbytesrecv = recv(fd, input_buffer_, INPUT_BUFFER_SIZE, 0);
-  if (nbytesrecv <= 0)
+  if (nbytesrecv > 0)
   {
-    if (0 == nbytesrecv)
+    message_callback_(fd, input_buffer_);
+  }
+  else
+  {
+    if (0 < nbytesrecv)
     {
-      handleDisconnect(fd);
-      return;
+      // Do we want to keep this error output?
+      URCL_LOG_ERROR("recv() on FD %d failed.", fd);
     }
     else
     {
-      URCL_LOG_ERROR("recv() failed");
+      // normal disconnect
     }
-    close(fd);
-    FD_CLR(fd, &masterfds_);
-    return;
+    handleDisconnect(fd);
   }
-  message_callback_(fd, input_buffer_);
 }
 
 void TCPServer::worker()
