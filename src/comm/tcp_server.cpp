@@ -161,7 +161,7 @@ void TCPServer::handleConnect()
     throw std::system_error(std::error_code(errno, std::generic_category()), ss.str());
   }
 
-  if (client_fds_.size() < max_clients_allowed_)
+  if (client_fds_.size() < max_clients_allowed_ || max_clients_allowed_ == 0)
   {
     client_fds_.push_back(client_fd);
     FD_SET(client_fd, &masterfds_);
