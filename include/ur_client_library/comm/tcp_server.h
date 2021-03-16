@@ -28,14 +28,14 @@
 #ifndef UR_CLIENT_LIBRARY_TCP_SERVER_H_INCLUDED
 #define UR_CLIENT_LIBRARY_TCP_SERVER_H_INCLUDED
 
+#include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <functional>
 #include <thread>
-
-#include <ur_client_library/comm/tcp_socket.h>
 
 namespace urcl
 {
