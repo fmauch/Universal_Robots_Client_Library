@@ -62,6 +62,9 @@ void TCPServer::init()
   {
     throw std::system_error(std::error_code(errno, std::generic_category()), "Failed to create socket endpoint");
   }
+  int flag = 1;
+  setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
+
   URCL_LOG_DEBUG("Created socket with FD %d", (int)listen_fd_);
 
   FD_ZERO(&masterfds_);
@@ -112,8 +115,11 @@ void TCPServer::shutdown()
   }
 
   // After the event loop has finished the thread will be joinable.
-  worker_thread_.join();
-  URCL_LOG_DEBUG("Worker thread joined.");
+  if (worker_thread_.joinable())
+  {
+    worker_thread_.join();
+    URCL_LOG_DEBUG("Worker thread joined.");
+  }
 }
 
 void TCPServer::bind()
