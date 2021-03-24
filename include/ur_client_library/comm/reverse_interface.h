@@ -155,6 +155,7 @@ private:
       URCL_LOG_INFO("Robot connected to reverse interface. Ready to receive control commands.");
       client_fd_ = filedescriptor;
       handle_program_state_(true);
+      keepalive_watchdog_thread_ = std::thread(&ReverseInterface::runKeepalive, this);
     }
     else
     {
@@ -163,11 +164,34 @@ private:
     }
   }
 
+  void runKeepalive()
+  {
+    while (client_fd_ != -1)
+    {
+      std::unique_lock<std::mutex> lk(keepalive_mutex_);
+      if (keepalive_cv_.wait_for(lk, std::chrono::milliseconds(100)) == std::cv_status::no_timeout)
+      {
+        URCL_LOG_INFO("Got keepalive signal.");
+      }
+      else
+      {
+        if (client_fd_ != -1)
+        {
+          URCL_LOG_WARN("ReverseInterface: Did not receive keepalive signal");
+          std::thread t(&TCPServer::disconnectClient, &server_, (int)client_fd_);
+          t.detach();
+        }
+      }
+    }
+    URCL_LOG_INFO("Watchdog finished");
+  }
+
   void disconnectionCallback(const int filedescriptor)
   {
     URCL_LOG_INFO("Connection to reverse interface dropped.", filedescriptor);
     client_fd_ = -1;
     handle_program_state_(false);
+    keepalive_watchdog_thread_.join();
   }
 
   void messageCallback(const int filedescriptor, char* buffer)
@@ -177,8 +201,10 @@ private:
     keepalive_cv_.notify_one();
   }
 
-  int client_fd_;
+  std::atomic<int> client_fd_;
   TCPServer server_;
+
+  std::thread keepalive_watchdog_thread_;
 
   std::mutex keepalive_mutex_;
   std::condition_variable keepalive_cv_;

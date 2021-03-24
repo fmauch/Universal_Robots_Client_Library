@@ -144,6 +144,11 @@ public:
     max_clients_allowed_ = max_clients_allowed;
   }
 
+  void disconnectClient(const int client_fd)
+  {
+    handleDisconnect(client_fd);
+  }
+
 private:
   void init();
   void bind();
