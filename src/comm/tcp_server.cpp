@@ -169,7 +169,10 @@ void TCPServer::handleConnect()
     {
       maxfd_ = std::max(client_fd, self_pipe_[0]);
     }
-    new_connection_callback_(client_fd);
+    if (new_connection_callback_)
+    {
+      new_connection_callback_(client_fd);
+    }
   }
   else
   {
@@ -237,7 +240,10 @@ void TCPServer::spin()
 void TCPServer::handleDisconnect(const int fd)
 {
   URCL_LOG_DEBUG("%d disconnected.", fd);
-  disconnect_callback_(fd);
+  if (disconnect_callback_)
+  {
+    disconnect_callback_(fd);
+  }
   close(fd);
   FD_CLR(fd, &masterfds_);
 
@@ -257,7 +263,10 @@ void TCPServer::readData(const int fd)
   int nbytesrecv = recv(fd, input_buffer_, INPUT_BUFFER_SIZE, 0);
   if (nbytesrecv > 0)
   {
-    message_callback_(fd, input_buffer_);
+    if (message_callback_)
+    {
+      message_callback_(fd, input_buffer_);
+    }
   }
   else
   {
