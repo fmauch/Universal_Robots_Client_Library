@@ -312,10 +312,14 @@ TEST_F(TCPServerTest, client_connections)
   EXPECT_TRUE(waitForConnectionCallback());
   int client3_fd = client_fd_;
 
+  // Test that we can write to all connected clients
+  EXPECT_TRUE(server.write(client1_fd, data, len, written));
+  EXPECT_TRUE(server.write(client2_fd, data, len, written));
+  EXPECT_TRUE(server.write(client3_fd, data, len, written));
+
   // Test that the correct clients are disconnected on the server side.
   client1.close();
   EXPECT_TRUE(waitForDisconnectionCallback());
-
   EXPECT_FALSE(server.write(client1_fd, data, len, written));
   EXPECT_TRUE(server.write(client2_fd, data, len, written));
   EXPECT_TRUE(server.write(client3_fd, data, len, written));
