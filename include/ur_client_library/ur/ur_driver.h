@@ -231,7 +231,6 @@ public:
 
 private:
   std::string readScriptFile(const std::string& filename);
-  std::string readKeepalive();
 
   int rtde_frequency_;
   comm::INotifier notifier_;

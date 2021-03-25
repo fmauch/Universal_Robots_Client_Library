@@ -63,9 +63,7 @@ public:
    * \brief Creates a ReverseInterface object including a TCPServer.
    *
    * \param port Port the Server is started on
-   * \param handle_program_state Function handle to a callback on program state changes. For this to
-   * work, the URScript program will have to send keepalive signals to the \p reverse_port. I no
-   * keepalive signal can be read, program state will be false.
+   * \param handle_program_state Function handle to a callback on program state changes.
    */
   ReverseInterface(uint32_t port, std::function<void(bool)> handle_program_state)
     : client_fd_(-1), server_(port), handle_program_state_(handle_program_state)
@@ -129,24 +127,6 @@ public:
     return server_.write(client_fd_, buffer, sizeof(buffer), written);
   }
 
-  /*!
-   * \brief Reads a keepalive signal from the robot.
-   *
-   * \returns The received keepalive string or the empty string, if nothing was received
-   */
-  std::string readKeepalive()
-  {
-    // If client has been disconnected / not connected yet.
-    if (client_fd_ == -1)
-    {
-      return "";
-    }
-
-    std::unique_lock<std::mutex> lk(keepalive_mutex_);
-    keepalive_cv_.wait(lk);
-    return keepalive_message_;
-  }
-
 private:
   void connectionCallback(const int filedescriptor)
   {
@@ -172,17 +152,12 @@ private:
 
   void messageCallback(const int filedescriptor, char* buffer)
   {
-    std::lock_guard<std::mutex> lk(keepalive_mutex_);
-    keepalive_message_ = std::string(buffer);
-    keepalive_cv_.notify_one();
+    URCL_LOG_WARN("Messge on ReverseInterface received. The reverse interface currently does not support any message "
+                  "handling. This message will be ignored.");
   }
 
   int client_fd_;
   TCPServer server_;
-
-  std::mutex keepalive_mutex_;
-  std::condition_variable keepalive_cv_;
-  std::string keepalive_message_;
 
   static const int32_t MULT_JOINTSTATE = 1000000;
 

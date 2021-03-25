@@ -64,6 +64,7 @@ void TCPServer::init()
   }
   int flag = 1;
   setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
+  setsockopt(listen_fd_, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(int));
 
   URCL_LOG_DEBUG("Created socket with FD %d", (int)listen_fd_);
 

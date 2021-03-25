@@ -192,10 +192,6 @@ std::string UrDriver::readScriptFile(const std::string& filename)
 
   return content;
 }
-std::string UrDriver::readKeepalive()
-{
-  return reverse_interface_->readKeepalive();
-}
 
 void UrDriver::checkCalibration(const std::string& checksum)
 {
