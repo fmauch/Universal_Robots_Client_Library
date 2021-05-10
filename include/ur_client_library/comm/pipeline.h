@@ -169,6 +169,11 @@ template <typename T>
 class IProducer
 {
 public:
+  virtual ~IProducer()
+  {
+    teardownProducer();
+  }
+
   /*!
    * \brief Set-up functionality of the producers.
    */
