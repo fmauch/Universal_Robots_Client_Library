@@ -1,0 +1,13 @@
+name: Check licenses
+on:
+  push:
+    branches:
+      - license_action
+
+jobs:
+  check_licenses:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: fmauch/ros_license_toolkit@action
