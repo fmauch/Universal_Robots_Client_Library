@@ -117,16 +117,14 @@ target_link_libraries(db_client ur_client_library::urcl)
 ```
 
 ## License
-The majority of this library is licensed under the Apache-2.0 licensed. However, certain parts are
-licensed under different licenses:
+The majority of this library is licensed under the Apache-2.0 licensed. However, other licenses are
+used for specific pars of the software:
  - The queue used inside the communication structures is originally written by Cameron Desrochers
    and is released under the BSD-2-Clause license.
  - The semaphore implementation used inside the queue implementation is written by Jeff Preshing and
    licensed under the zlib license
- - The Dockerfile used for the integration tests of this repository is originally written by Arran
-   Hobson Sayers and released under the MIT license
 
-While the main `LICENSE` file in this repository contains the Apache-2.0 license used for the
+While the main `LICENSE_apache_2_0` file in this repository contains the Apache-2.0 license used for the
 majority of the work, the respective libraries of third-party components reside together with the
 code imported from those third parties.
 
