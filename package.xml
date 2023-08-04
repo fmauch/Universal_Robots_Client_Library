@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<?xml-model href="https://raw.githubusercontent.com/fmauch/Universal_Robots_Client_Library/license_action/.github/package_format3_with_license_extension.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>ur_client_library</name>
   <version>1.3.2</version>
